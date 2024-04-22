@@ -81,4 +81,35 @@ glm(
 
 
 
+glm(
+  Survival.Indicator ~ .+ Apoptosis * Cancer.Code,
+  data = data_bind_2,
+  family = binomial
+) %>% summary()
+
+
+
+library(ggplot2)
+
+
+
+
+data_bind_2 %>% ggplot(aes(x = Apoptosis, fill = Cancer.Code)) +
+  geom_histogram(position = "dodge", bins = 30) +
+  theme_minimal() +
+  theme(legend.position = "top")
+
+
+data_bind_2 %>% ggplot(aes(x = (Apoptosis-mean(Apoptosis)), fill = factor(Survival.Indicator))) + geom_histogram(position = "stack", bins = 30) + facet_wrap( ~ Cancer.Code, ncol = 1) + labs(x = "Apoptosis", y = "Count", fill = "Survival Indicator") + scale_fill_manual(
+  values = c("0" = "blue", "1" = "red"),
+  labels = c("Short Survivor", "Long Survivor")
+) + theme_minimal() + theme(legend.position = "top")
+
+
+
+
+
+
+
+
 
