@@ -47,6 +47,16 @@ map(brca_covar, ~sum(is.na(.)) )%>% unlist()
 ```
 
 
+
+```{r}
+
+skimr::skim(Data$BRCA)
+
+
+```
+
+
+
 ```{r}
 
 brca_covar_na <- brca_covar %>% select('Age.at.Diagnosis..Years.',

@@ -1,0 +1,384 @@
+---
+title: "combined_draft"
+author: "Bulun Te"
+date: "2024-04-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+setwd(here::here())
+load("CPD.rda")
+library(readxl)
+mamo_data = read.csv("mamo_data.csv")
+library(purrr)
+
+if (!requireNamespace("logistf", quietly = TRUE)) {
+  install.packages("logistf")
+}
+library(logistf)
+library(dplyr)
+library(corrplot)
+
+```
+
+
+### brca
+
+```{r}
+
+Data$BRCA -> brca
+names(brca)
+
+names(brca) <- make.names(names(brca))
+brca_covar = brca %>% select(-Hormone.Receptor,
+                             -Hormone.Signaling..Breast.,
+                             -Cancer.Code,
+                             -Core.Reactive)
+
+
+brca_covar %>% mutate(
+  stage_1 = ifelse(Pathologic.Stage %in% c("i","ia","ib"), 1, 0),
+  stage_2_early = ifelse(Pathologic.Stage %in% c("ii","iia"), 1, 0),
+  stage_2_late = ifelse(Pathologic.Stage %in% c("iib"), 1, 0)
+) -> brca_covar
+
+```
+
+
+```{r}
+
+logit_model_1 = logistf(Survival.Indicator ~ EMT+Age.at.Diagnosis..Years. + stage_1 + stage_2_early + stage_2_late+Gender, data = brca_covar)
+
+summary(logit_model_1)
+
+```
+
+```{r}
+
+logit_model_2 = logistf(Survival.Indicator ~ RTK+Age.at.Diagnosis..Years. + stage_1 + stage_2_early + stage_2_late+Gender, data = brca_covar)
+
+summary(logit_model_2)
+
+```
+
+
+```{r}
+
+logit_model_two = logistf(Survival.Indicator ~ EMT+RTK+Age.at.Diagnosis..Years. + stage_1 + stage_2_early + stage_2_late+Gender, data = brca_covar)
+
+summary(logit_model_two)
+
+```
+
+```{r}
+
+logit_model_three = logistf(Survival.Indicator ~ EMT*RTK+Age.at.Diagnosis..Years. + stage_1 + stage_2_early + stage_2_late+Gender, data = brca_covar)
+
+summary(logit_model_three)
+
+
+
+```
+
+
+```{r}
+
+logit_model_full = logistf(Survival.Indicator ~ Age.at.Diagnosis..Years. + stage_1 + stage_2_early + stage_2_late +
+                        Apoptosis+Breast.Reactive+Cell.Cycle+DNA.Damage.Response+EMT+
+                        PI3K.AKT+RAS.MAPK+RTK+TSC.mTOR, data = brca_covar)
+
+summary(logit_model)
+
+```
+
+
+
+```{r}
+
+skimr::skim(Data$LGG)
+
+lgg <- Data$LGG
+
+names(lgg) <- make.names(names(lgg))
+
+lgg <- lgg %>% select(
+  -Patient.ID,
+  -Cancer.Code
+)
+
+
+```
+
+
+```{r}
+
+
+logit_model_lgg <-
+  logistf(
+    Survival.Indicator ~ Age.at.Diagnosis..Years. +                 Apoptosis +
+      Breast.Reactive + Cell.Cycle + DNA.Damage.Response:RTK + EMT +
+      PI3K.AKT + RAS.MAPK + RTK + TSC.mTOR,
+    data = lgg
+  )
+
+summary(logit_model_lgg)
+
+
+
+```
+
+
+```{r}
+
+
+logit_model_lgg <-
+  logistf(
+    Survival.Indicator ~  RTK +Age.at.Diagnosis..Years. +Gender ,
+    data = lgg
+  )
+
+summary(logit_model_lgg)
+
+```
+
+
+```{r}
+
+
+
+logit_model_lgg <-
+  logistf(
+    Survival.Indicator ~  DNA.Damage.Response +Age.at.Diagnosis..Years. +Gender ,
+    data = lgg
+  )
+
+summary(logit_model_lgg)
+
+```
+
+
+```{r}
+
+
+
+logit_model_lgg_1 <-
+  logistf(
+    Survival.Indicator ~  DNA.Damage.Response+RTK +Gender ,
+    data = lgg
+  )
+
+summary(logit_model_lgg_1)
+
+
+
+```
+
+```{r}
+
+  logistf(
+    Survival.Indicator ~  DNA.Damage.Response*RTK +Gender ,
+    data = lgg
+  ) %>% summary()
+
+
+```
+
+
+
+
+```{r}
+
+lgg$DNA_center = (lgg$DNA.Damage.Response - mean(lgg$DNA.Damage.Response))
+lgg$RTK_center = (lgg$RTK - mean(lgg$RTK))
+
+logit_model_lgg <-
+  logistf(
+    Survival.Indicator ~  DNA_center * RTK_center +Age.at.Diagnosis..Years. +Gender  ,
+    data = lgg
+  )
+
+summary(logit_model_lgg)
+
+
+```
+
+
+```{r}
+
+lgg %>% na.omit() %>%
+  ggplot(aes(x = RTK_center, y = DNA_center, color = as.factor(Survival.Indicator))) +
+  geom_point(aes(alpha = ifelse(Survival.Indicator == 0, 0.2, 1))) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  scale_alpha_identity() +
+  theme_minimal() +
+  labs(title = "Scatter plot of RTK_center and DNA_center grouped by Survival.Indicator",
+       color = "Survival.Indicator")
+
+```
+
+
+```{r}
+
+
+# scatter plot of RTK_center and DNA_center grouped by Survival.Indicator
+# make the points in the Survival.Indicator = 0 group alpha = 0.3
+
+
+lgg %>% ggplot(aes(x = RTK_center, y = DNA_center, color = as.factor(Survival.Indicator))) +
+  geom_point(alpha = 0.3) +
+  theme_minimal() +
+  labs(title = "Scatter plot of RTK_center and DNA_center grouped by Survival.Indicator")
+
+
+
+
+```
+
+
+```{r}
+
+lusc_complete <- lusc %>% filter(!is.na(Age.at.Diagnosis..Years.),
+                                  !is.na(Survival.Indicator),
+                                  !is.na(Pathologic.Stage))
+
+X = lusc_complete %>% select(-Survival.Indicator,-Patient.ID,-Cancer.Code)
+
+y = lusc_complete$Survival.Indicator
+
+X$Pathologic.Stage %>% table()
+
+# Creating stage_variables
+
+X = X %>% mutate(
+  stage_1 = ifelse(Pathologic.Stage %in% c("i","ia","ib"), 1, 0),
+  stage_2 = ifelse(Pathologic.Stage %in% c("ii","iia","iib"), 1, 0),
+  Gender = ifelse(X$Gender == "male",1,0)
+)
+
+
+X = X %>% select(-Pathologic.Stage)
+
+data_lucc <- cbind(X,y)
+
+```
+
+
+```{r}
+
+logistf(y ~ EMT + Age.at.Diagnosis..Years. + Gender + stage_1 +
+          stage_2 ,
+        data = data_lucc) -> logit_model_lusc
+
+summary(logit_model_lusc)
+
+```
+
+
+```{r}
+
+glm(y ~ .,
+        data = data_lucc) %>% summary()
+
+```
+
+
+
+```{r}
+
+Data$KIRC -> kirc
+
+names(kirc) <- make.names(names(kirc))
+# skimr::skim(kirc)
+
+kirc <- kirc %>% select(
+  -Patient.ID,
+  -Cancer.Code,
+  -Hormone.Receptor
+) %>% na.omit()
+
+
+
+```
+
+
+```{r}
+
+
+logistic_kirc <- logistf(Survival.Indicator ~ ., data = kirc)
+
+summary(logistic_kirc)
+```
+
+
+```{r}
+logistic_kirc_1 <-
+  logistf(Survival.Indicator ~RAS.MAPK+ Age.at.Diagnosis..Years. + Gender,
+          data = kirc)
+
+summary(logistic_kirc_1)
+
+```
+
+```{r}
+logistic_kirc_2 <-
+  logistf(Survival.Indicator ~PI3K.AKT + Age.at.Diagnosis..Years. + Gender,
+          data = kirc)
+
+summary(logistic_kirc_2)
+
+
+```
+
+
+
+```{r}
+
+logistic_kirc_3 <-
+  logistf(Survival.Indicator ~RAS.MAPK+PI3K.AKT + Age.at.Diagnosis..Years. + Gender,
+          data = kirc)
+
+summary(logistic_kirc_3)
+
+```
+
+
+```{r}
+
+kirc <- kirc %>% mutate(
+  state_1 = ifelse(Pathologic.Stage %in% c("i","ia","ib"), 1, 0),
+  state_2 = ifelse(Pathologic.Stage %in% c("ii","iia","iib"),1,0)
+) %>% select(-Pathologic.Stage)
+
+glm(Survival.Indicator ~ .,data=kirc,family = binomial) %>% summary()
+
+```
+
+
+```{r}
+
+lusc <- Data$LUSC
+
+names(lusc) <- make.names(names(lusc))
+
+lusc <- lusc %>% select(
+  -Patient.ID,
+  -Cancer.Code,
+  -Hormone.Receptor
+) %>% na.omit()
+
+lusc <- lusc %>% mutate(
+  state_1 = ifelse(Pathologic.Stage %in% c("i","ia","ib"), 1, 0),
+  state_2 = ifelse(Pathologic.Stage %in% c("ii","iia","iib"),1,0)
+) %>% select(-Pathologic.Stage)
+
+glm(Survival.Indicator ~ .,data=lusc,family = binomial) %>% summary()
+
+```
+

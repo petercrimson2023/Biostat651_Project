@@ -35,6 +35,7 @@ temo_lusc %>% filter(is.na(Pathologic.Stage)) %>% knitr::kable()
 
 
 
+
 # if (requireNamespace("glmnet", quietly = TRUE))
 # {
 #   install.packages("glmnet")
@@ -60,7 +61,13 @@ X = X %>% mutate(
   Gender = ifelse(X$Gender == "male",1,0)
 )
 
+
 X = X %>% select(-Pathologic.Stage)
+
+
+library(GGally)
+ggpairs(X) %>% ggsave("lung_cancer_covar_numeric.png",.,width=20,height=20)
+
 
 # Creating interaction variables 
 
@@ -78,15 +85,13 @@ for(i in 1:(length(covar_lists)-1))
 
 names(X)
 
-#glmnet(x = as.matrix(X),y=y,alpha = 1, family = "binomial")-> lusc_model
 
-#plot(lusc_model, xvar = "lambda", label = TRUE)
 
 # _____________________________________elastic net_________________________________
 
 cv.glmnet(x=as.matrix(X), y, alpha = 0.5)
  
-glmnet(x = as.matrix(X),y=y,alpha = 0.5, family = "binomial",lambda = c(1:5000)/(1E6))-> lusc_model
+glmnet(x = as.matrix(X),y=y,alpha = 0.5, family = "binomial",lambda = c(1:25)/1E4 )-> lusc_model
  
 plot(lusc_model, xvar = "lambda", label = TRUE)
 
@@ -273,13 +278,13 @@ X_single = X_single %>% select(-Pathologic.Stage)
 
 # using IQR normalization only on 2:ncol(X_single)-2
 
-#X_single[,3:(ncol(X_single)-2)] = (X_single[,3:(ncol(X_single)-2)] - apply(X_single[,3:(ncol(X_single)-2)],2,median))/apply(X_single[,3:(ncol(X_single)-2)],2,IQR) 
+X_single[,3:(ncol(X_single)-2)] = (X_single[,3:(ncol(X_single)-2)] - apply(X_single[,3:(ncol(X_single)-2)],2,median))/apply(X_single[,3:(ncol(X_single)-2)],2,IQR) 
 
 #X_single = (X_single - apply(X_single,2,median))/apply(X_single,2,IQR)
 
 #X_single = (X_single - apply(X_single,2,mean))/apply(X_single,2,sd)
 
-X_single[,3:(ncol(X_single)-2)] = (X_single[,3:(ncol(X_single)-2)] - apply(X_single[,3:(ncol(X_single)-2)],2,mean))/apply(X_single[,3:(ncol(X_single)-2)],2,sd)
+#X_single[,3:(ncol(X_single)-2)] = (X_single[,3:(ncol(X_single)-2)] - apply(X_single[,3:(ncol(X_single)-2)],2,mean))/apply(X_single[,3:(ncol(X_single)-2)],2,sd)
 
 complete_data = cbind(X_single,y)
 
