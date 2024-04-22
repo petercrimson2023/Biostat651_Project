@@ -1,0 +1,169 @@
+---
+title: "brca_draft"
+author: "Bulun Te"
+date: "2024-04-20"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+setwd(here::here())
+load("CPD.rda")
+library(readxl)
+mamo_data = read.csv("mamo_data.csv")
+library(purrr)
+
+if (!requireNamespace("logistf", quietly = TRUE)) {
+  install.packages("logistf")
+}
+library(logistf)
+library(dplyr)
+library(corrplot)
+
+```
+
+
+
+```{r}
+Data$BRCA -> brca
+names(brca)
+
+names(brca) <- make.names(names(brca))
+brca_covar = brca %>% select(-Hormone.Receptor,
+                             -Hormone.Signaling..Breast.,
+                             -Cancer.Code,
+                             -Core.Reactive)
+map(brca_covar, ~sum(is.na(.)) )%>% unlist()
+
+
+```
+
+
+```{r}
+
+brca_covar_na <- brca_covar %>% select('Age.at.Diagnosis..Years.',
+                                       'Pathologic.Stage',
+                                       'Survival.Indicator')
+
+brca_covar_na %>% filter(is.na(Age.at.Diagnosis..Years.)) %>% knitr::kable()
+brca_covar_na %>% filter(is.na(Pathologic.Stage)) %>% knitr::kable()
+brca_covar_na %>% filter(is.na(Survival.Indicator)) %>% knitr::kable()
+
+```
+
+
+```{r}
+skimr::skim(brca_covar)
+```
+
+```{r}
+brca_covar$Pathologic.Stage <- as.factor(brca_covar$Pathologic.Stage)
+brca_covar$Gender <- as.factor(brca_covar$Gender) %>% as.numeric()
+brca_covar <- brca_covar %>% select(-Patient.ID)
+```
+
+
+```{r}
+
+brca_covar_numeric <- brca_covar %>%
+  select_if(is.numeric)
+
+```
+
+
+```{r,warning=FALSE, message=FALSE}
+
+# corrplot(cor(brca_covar_numeric), method = "number")
+
+library(GGally)
+ggpairs(brca_covar_numeric) %>% ggsave("brca_covar_numeric.png",.,width=20,height=20)
+
+
+```
+
+# Checking the distribution of age and gender
+```{r}
+brca_covar %>% select(Age.at.Diagnosis..Years.,Gender) %>% ggpairs()
+brca_covar$Gender %>% table()
+brca_covar$Age.at.Diagnosis..Years. %>% hist()
+
+brca_covar %>% select(Gender,Survival.Indicator) %>% table()
+```
+
+
+```{r}
+
+brca_covar$Pathologic.Stage  %>% table()
+
+brca_covar %>% filter(Pathologic.Stage != "x") -> brca_covar
+
+brca_covar %>% mutate(
+  stage_1 = ifelse(Pathologic.Stage %in% c("i","ia","ib"), 1, 0),
+  stage_2_early = ifelse(Pathologic.Stage %in% c("ii","iia"), 1, 0),
+  stage_2_late = ifelse(Pathologic.Stage %in% c("iib"), 1, 0)
+) -> brca_covar
+
+```
+
+
+
+```{r}
+
+logit_model = logistf(Survival.Indicator ~ Age.at.Diagnosis..Years. + stage_1 + stage_2_early + stage_2_late +
+                        Apoptosis+Breast.Reactive+Cell.Cycle+DNA.Damage.Response+EMT+
+                        PI3K.AKT+RAS.MAPK+RTK+TSC.mTOR, data = brca_covar)
+
+summary(logit_model)
+
+```
+
+
+```{r}
+library(dbarts)
+x_train = brca_covar %>% select(-Survival.Indicator,
+                                -Pathologic.Stage)
+y_train = brca_covar$Survival.Indicator
+x_test = NULL
+
+bart_model = bart(x_train, y_train, x_test)
+```
+
+
+```{r}
+summary(bart_model)
+```
+```{r}
+var_counts <- bart_model$varcount
+var_counts[900:1000,] -> var_counts_last
+
+var_counts_df <- data.frame(var_counts_last) %>% colMeans() %>% as.data.frame()
+var_counts_df$variable <- rownames(var_counts_df)
+colnames(var_counts_df) <- c("count", "variable")
+var_counts_df <- var_counts_df[order(var_counts_df[,1], decreasing = TRUE), ]
+print(var_counts_df)
+
+
+ggplot(var_counts_df, aes(x = reorder(variable, count), y = count)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(x = "Variable", y = "Count") +
+  theme_minimal()
+
+```
+
+
+
+
+
+
+
+
+
