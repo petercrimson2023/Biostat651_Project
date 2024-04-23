@@ -1,0 +1,127 @@
+---
+title: "Draft"
+author: "Bulun Te"
+date: "2024-04-23"
+output:
+  pdf_document: 
+    latex_engine: xelatex
+---
+
+
+
+## Data generation
+
+```{r}
+
+setwd(here::here())
+load("CPD.rda")
+library(readxl)
+mamo_data = read.csv("mamo_data.csv")
+library(purrr)
+
+if (!requireNamespace("logistf", quietly = TRUE)) {
+  install.packages("logistf")
+}
+library(logistf)
+library(dplyr)
+library(corrplot)
+
+kirc <- Data$KIRC
+
+names(kirc) <- make.names(names(kirc))
+
+kirc <- kirc %>% select(
+  -Patient.ID,
+  -Hormone.Receptor
+) %>% na.omit()
+
+kirc <- kirc %>% mutate(
+  state_1 = ifelse(Pathologic.Stage %in% c("i","ia","ib"), 1, 0),
+  state_2 = ifelse(Pathologic.Stage %in% c("ii","iia","iib"),1,0)
+) %>% select(-Pathologic.Stage)
+
+# glm(Survival.Indicator ~ .,data=kirc,family = binomial) %>% summary()
+
+
+lusc <- Data$LUSC
+
+names(lusc) <- make.names(names(lusc))
+
+lusc <- lusc %>% select(
+  -Patient.ID,
+  -Hormone.Receptor
+) %>% na.omit()
+
+lusc <- lusc %>% mutate(
+  state_1 = ifelse(Pathologic.Stage %in% c("i","ia","ib"), 1, 0),
+  state_2 = ifelse(Pathologic.Stage %in% c("ii","iia","iib"),1,0)
+) %>% select(-Pathologic.Stage)
+
+
+data_bind_2 = rbind(kirc,lusc)
+
+```
+
+
+
+## 两个数据集上，只看交互项的模型
+
+```{r}
+
+
+glm(
+  Survival.Indicator ~ Apoptosis *  Cancer.Code + Gender + Age.at.Diagnosis..Years. + state_1 + state_2,
+  data = data_bind_2,
+  family = binomial
+) %>% summary()
+
+
+```
+
+
+
+## 两个数据集上，进行subgroups analysis的模型
+
+
+```{r}
+
+glm(
+  Survival.Indicator ~ (Apoptosis+ Gender + Age.at.Diagnosis..Years. + state_1 + state_2) * Cancer.Code,
+  data = data_bind_2,
+  family = binomial
+) %>% summary()
+
+
+```
+
+
+###  Kidney Cancer上的模型
+
+```{r}
+
+glm(
+  Survival.Indicator ~ (Apoptosis+ Gender + Age.at.Diagnosis..Years. + state_1 + state_2) ,
+  data = kirc,
+  family = binomial
+) %>% summary()
+
+
+```
+
+
+
+### Lung Cancer上的模型
+
+
+```{r}
+
+glm(
+  Survival.Indicator ~ (Apoptosis+ Gender + Age.at.Diagnosis..Years. + state_1 + state_2) ,
+  data = lusc,
+  family = binomial
+) %>% summary()
+
+
+```
+
+
