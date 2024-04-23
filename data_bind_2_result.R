@@ -70,9 +70,18 @@ data_bind_2 = rbind(kirc,lusc)
 # data_bind_2$Cancer.Code %>% table()
 
 
+# 两个数据集上，只看交互项的模型
+glm(
+  Survival.Indicator ~ Apoptosis *  Cancer.Code + Gender + Age.at.Diagnosis..Years. + state_1 + state_2,
+  data = data_bind_2,
+  family = binomial
+) %>% summary()
+
+
+# 两个数据集上，进行subgroups analysis的模型
 
 glm(
-  Survival.Indicator ~ Apoptosis * Cancer.Code + Gender + Age.at.Diagnosis..Years. + state_1 + state_2,
+  Survival.Indicator ~ (Apoptosis+ Gender + Age.at.Diagnosis..Years. + state_1 + state_2) * Cancer.Code,
   data = data_bind_2,
   family = binomial
 ) %>% summary()
@@ -80,19 +89,26 @@ glm(
 
 
 
-
+# Kidney Cancer上的模型
 glm(
-  Survival.Indicator ~ .+ Apoptosis * Cancer.Code,
-  data = data_bind_2,
+  Survival.Indicator ~ (Apoptosis+ Gender + Age.at.Diagnosis..Years. + state_1 + state_2) ,
+  data = kirc,
   family = binomial
 ) %>% summary()
+
+
+# Lung Cancer上的模型
+glm(
+  Survival.Indicator ~ (Apoptosis+ Gender + Age.at.Diagnosis..Years. + state_1 + state_2) ,
+  data = kirc,
+  family = binomial
+) %>% summary()
+
+
 
 
 
 library(ggplot2)
-
-
-
 
 data_bind_2 %>% ggplot(aes(x = Apoptosis, fill = Cancer.Code)) +
   geom_histogram(position = "dodge", bins = 30) +
