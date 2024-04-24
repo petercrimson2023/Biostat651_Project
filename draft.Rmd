@@ -3,8 +3,9 @@ title: "Draft"
 author: "Bulun Te"
 date: "2024-04-23"
 output:
-  pdf_document: 
+  pdf_document:
     latex_engine: xelatex
+  html_document:
 ---
 
 
@@ -62,9 +63,13 @@ data_bind_2 = rbind(kirc,lusc)
 
 ```
 
+```{r}
 
+library(ResourceSelection)
 
-## 两个数据集上，只看交互项的模型
+```
+
+## Two Dataset focusing on interaction
 
 ```{r}
 
@@ -73,14 +78,19 @@ glm(
   Survival.Indicator ~ Apoptosis *  Cancer.Code + Gender + Age.at.Diagnosis..Years. + state_1 + state_2,
   data = data_bind_2,
   family = binomial
-) %>% summary()
+) -> temp_model
+
+summary(temp_model)
+hoslem.test(temp_model$y, temp_model$fitted.values, g=10)
+
+car::vif(temp_model)
 
 
 ```
 
 
 
-## 两个数据集上，进行subgroups analysis的模型
+## Two dataset, doing subgroup analysis
 
 
 ```{r}
@@ -89,13 +99,18 @@ glm(
   Survival.Indicator ~ (Apoptosis+ Gender + Age.at.Diagnosis..Years. + state_1 + state_2) * Cancer.Code,
   data = data_bind_2,
   family = binomial
-) %>% summary()
+)-> temp_model
 
+summary(temp_model)
+hoslem.test(temp_model$y, temp_model$fitted.values, g=10)
+
+
+car::vif(temp_model)
 
 ```
 
 
-###  Kidney Cancer上的模型
+###  Kidney Cancer
 
 ```{r}
 
@@ -103,14 +118,18 @@ glm(
   Survival.Indicator ~ (Apoptosis+ Gender + Age.at.Diagnosis..Years. + state_1 + state_2) ,
   data = kirc,
   family = binomial
-) %>% summary()
+) -> temp_model
 
+summary(temp_model)
+hoslem.test(temp_model$y, temp_model$fitted.values, g=10)
+
+car::vif(temp_model)
 
 ```
 
 
 
-### Lung Cancer上的模型
+### Lung Cancer
 
 
 ```{r}
@@ -119,8 +138,13 @@ glm(
   Survival.Indicator ~ (Apoptosis+ Gender + Age.at.Diagnosis..Years. + state_1 + state_2) ,
   data = lusc,
   family = binomial
-) %>% summary()
+)-> temp_model
 
+summary(temp_model)
+hoslem.test(temp_model$y, temp_model$fitted.values, g=10)
+
+
+car::vif(temp_model)
 
 ```
 

@@ -160,7 +160,7 @@ ggplot(plot_data, aes(x = Estimate, y = variable)) +
   theme_bw() +                                            
   theme(axis.text.y = element_text(size = 8)) 
 
-interval_df %>% ptiny()
+interval_df %>% print()
 
 
 #____________________________________ lasso _________________________________
