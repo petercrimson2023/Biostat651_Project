@@ -1,0 +1,197 @@
+---
+title: "baseline characteristic, histogram plot, interaction plot"
+author: "Yue Wu"
+date: "2024-04-24"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+---
+
+```{r}
+#-----------------common part, same as github ---------------------
+load("CPD.rda")
+library(readxl)
+library(purrr)
+
+if (!requireNamespace("logistf", quietly = TRUE)) {
+  install.packages("logistf")
+}
+library(logistf)
+library(dplyr)
+library(corrplot)
+library(pdp)
+
+kirc <- Data$KIRC
+
+names(kirc) <- make.names(names(kirc))
+
+kirc <- kirc %>% select(
+  -Patient.ID,
+  -Hormone.Receptor
+) %>% na.omit()
+
+kirc <- kirc %>% mutate(
+  state_1 = ifelse(Pathologic.Stage %in% c("i","ia","ib"), 1, 0),
+  state_2 = ifelse(Pathologic.Stage %in% c("ii","iia","iib"),1,0)
+) %>% select(-Pathologic.Stage)
+
+# glm(Survival.Indicator ~ .,data=kirc,family = binomial) %>% summary()
+
+
+lusc <- Data$LUSC
+
+names(lusc) <- make.names(names(lusc))
+
+lusc <- lusc %>% select(
+  -Patient.ID,
+  -Hormone.Receptor
+) %>% na.omit()
+
+lusc <- lusc %>% mutate(
+  state_1 = ifelse(Pathologic.Stage %in% c("i","ia","ib"), 1, 0),
+  state_2 = ifelse(Pathologic.Stage %in% c("ii","iia","iib"),1,0)
+) %>% select(-Pathologic.Stage)
+
+
+data_bind_2 = rbind(kirc,lusc)
+#------------------------below is different part,need to be added--------------------
+#----------------------baseline characteristic----------------------------
+library(gtsummary)
+library(dplyr)
+
+# Assuming data_bind_3 is your dataset
+table <- data_bind_2 %>%
+  select(
+    Cancer.Code, Age.at.Diagnosis..Years., Gender, Apoptosis, Survival.Indicator, state_1, state_2
+  ) %>%
+  tbl_summary(
+    by = Survival.Indicator,
+    missing = "no",
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} ({p}%)"
+    ),
+    digits = list(
+      Apoptosis ~ c(2, 2)
+    ),
+    # Directly assigning custom labels here
+    label = list(
+      Cancer.Code ~ "Cancer Type",
+      `Age.at.Diagnosis..Years.` ~ "Age at Diagnosis",
+      Gender ~ "Gender",
+      Apoptosis ~ "Apoptosis Score",
+      state_1 ~ "State I",
+      state_2 ~ "State II"
+    )
+  ) %>%
+  add_n() %>%
+  add_p(
+    test = list(
+      Cancer.Code ~ "chisq.test",
+      Gender ~ "chisq.test",
+      state_1 ~ "chisq.test",
+      state_2 ~ "chisq.test"
+    ),
+    pvalue_fun = function(x) style_pvalue(x, digits = 2)
+  ) %>%
+  bold_p(t = 0.05) %>%
+  bold_labels()
+
+# Print the table
+print(table)
+
+#-------------------------histagram--------------------------------
+
+library(ggplot2)
+library(patchwork)
+
+# Adjusting the labels for the variables
+data_bind_2$Survival.Indicator <- factor(data_bind_2$Survival.Indicator, levels = c(0, 1), labels = c("Short", "Long"))
+data_bind_2$Cancer.Code <- factor(data_bind_2$Cancer.Code, levels = c("KIRC", "LUSC"), labels = c("Kidney Cancer", "Lung Cancer"))
+data_bind_2$Gender <- factor(data_bind_2$Gender)  # Assuming 'Gender' is already correctly labeled as Male/Female
+
+# Plot for Survival Indicator
+p1 <- ggplot(data_bind_2, aes(x = Survival.Indicator)) +
+  geom_bar(fill = "skyblue") +
+  labs(title = "Histogram of Survival Status, Cancer Type and Gender", x = "Survival Status", y = "Count") +
+  theme_minimal()
+
+# Plot for Cancer Code
+p2 <- ggplot(data_bind_2, aes(x = Cancer.Code)) +
+  geom_bar(fill = "pink") +
+  labs(title = "", x = "Cancer Type", y = "Count") +
+  theme_minimal()
+
+# Plot for Gender
+p3 <- ggplot(data_bind_2, aes(x = Gender)) +
+  geom_bar(fill = "lightgreen") +
+  labs(title = "", x = "Gender", y = "Count") +
+  theme_minimal()
+
+
+# Now, create the plots
+
+combined_plot <- p1 + p2 + p3 + plot_layout(ncol = 3)
+print(combined_plot)
+
+#--------------interaction plot---------------------
+logodds <- function(x) {
+  log(x/(1-x))
+}
+glm(
+  Survival.Indicator ~ (Apoptosis+ Gender + Age.at.Diagnosis..Years. + state_1 + state_2) * Cancer.Code,
+  data = data_bind_2,
+  family = binomial
+)-> temp_model
+
+summary(temp_model)
+hoslem.test(temp_model$y, temp_model$fitted.values, g=10)
+car::vif(temp_model)
+
+library(ggplot2)
+library(dplyr)
+
+# Assuming temp_model and data_bind_2 are properly defined
+data_bind_2 <- data_bind_2 %>%
+  mutate(
+    fitted_probs = predict(temp_model, type = "response"),
+    log_odds = log(fitted_probs / (1 - fitted_probs))
+  )
+
+# Plotting with adjustments for title positioning
+ggplot(data_bind_2, aes(x = Apoptosis, y = log_odds, color = Cancer.Code)) +
+  geom_jitter(alpha = 0.4, width = 0.02, height = 0.02) +  # Use geom_jitter to handle overplotting
+  geom_smooth(method = "lm", se = FALSE) +  # Linear model smooth line without confidence interval
+  labs(
+    x = "Apoptosis",
+    y = "Log Odds of Fitted Values",
+    title = "Log Odds of Predicted Probabilities vs. Apoptosis by Cancer Type",
+    color = "Cancer Type"  # Changing legend title for Cancer.Code
+  ) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1", 
+                     labels = c("Kidney Cancer", "Lung Cancer")) +  # Custom labels for the legend
+  theme(legend.position = c(0.9, 0.9),  # Place legend inside top right
+        legend.justification = c("right", "top"),
+        legend.box.just = "right",
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        legend.background = element_rect(fill = "transparent", color = NA),  # Transparent legend background
+        plot.title = element_text(hjust = 0.5, vjust = 1, face = "bold", size = 14))  # Center the title at the top
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+

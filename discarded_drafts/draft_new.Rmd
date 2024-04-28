@@ -1,0 +1,204 @@
+---
+title: "Draft"
+author: "Yuan Lu"
+date: "2024-04-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+load("/Users/daryllu/Downloads/Biostat 651/Project/CPD.rda")
+library(readxl)
+library(purrr)
+if (!requireNamespace("logistf", quietly = TRUE)) {
+install.packages("logistf") }
+library(logistf)
+library(dplyr)
+library(corrplot)
+library(rJava)
+library(bartMachineJARs)
+library(bartMachine)
+library(ggplot2)
+library(tidyr)
+
+```
+
+
+
+
+
+```{r}
+options(java.parameters = "-Xmx5000m")
+set_bart_machine_num_cores(4)
+
+
+```
+
+
+
+
+
+```{r}
+kirc <- Data$KIRC
+names(kirc) <- make.names(names(kirc))
+kirc <- kirc %>%
+  dplyr::select(-dplyr::matches("Patient.ID|Hormone.Receptor")) %>%
+  na.omit()
+
+
+```
+
+
+
+```{r}
+kirc <- kirc %>%
+  mutate(
+    state_1 = ifelse(Pathologic.Stage %in% c("i", "ia", "ib"), 1, 0),
+    state_2 = ifelse(Pathologic.Stage %in% c("ii", "iia", "iib"), 1, 0)
+  ) %>%
+  dplyr::select(-Pathologic.Stage)
+# glm(Survival.Indicator ~ .,data=kirc,family = binomial) %>% summary()
+lusc <- Data$LUSC
+names(lusc) <- make.names(names(lusc))
+lusc <- lusc %>%
+  dplyr::select(-dplyr::matches("Patient.ID|Hormone.Receptor")) %>%
+  na.omit()
+lusc <- lusc %>%
+  mutate(
+    state_1 = ifelse(Pathologic.Stage %in% c("i", "ia", "ib"), 1, 0),
+    state_2 = ifelse(Pathologic.Stage %in% c("ii", "iia", "iib"), 1, 0)
+  ) %>%
+  dplyr::select(-Pathologic.Stage)
+data_bind_2 = rbind(kirc,lusc)
+
+
+```
+
+
+
+
+
+```{r}
+x_train_df_1 <- as.data.frame(model.matrix(Survival.Indicator ~ Apoptosis * Cancer.Code + Gender + Age.at.Diagnosis..Years. + state_1 + state_2, data = data_bind_2))
+y_train_1 <- as.numeric(data_bind_2$Survival.Indicator)
+y_train_1<- factor(y_train_1, levels = c(0, 1))
+
+set.seed(123)  
+bart_model_1 <- bartMachine(x_train_df_1, y_train_1, 
+                          num_trees = 50, 
+                          num_burn_in = 100, 
+                          num_iterations_after_burn_in = 1000)
+
+summary(bart_model_1)
+
+```
+
+
+
+
+```{r}
+investigate_var_importance(bart_model_1, type = "splits", 
+plot = TRUE, num_replicates_for_avg = 5, num_trees_bottleneck = 20, 
+num_var_plot = Inf, bottom_margin = 10)
+
+
+```
+
+
+
+
+
+
+```{r}
+x_train_df_2 <- as.data.frame(model.matrix(Survival.Indicator ~ (Apoptosis+ Gender + Age.at.Diagnosis..Years. + state_1 + state_2) * Cancer.Code, data = data_bind_2))
+y_train_2 <- as.numeric(data_bind_2$Survival.Indicator)
+y_train_2 <- factor(y_train_2, levels = c(0, 1))
+
+set.seed(123)  
+bart_model_2 <- bartMachine(x_train_df_2, y_train_2, 
+                          num_trees = 50, 
+                          num_burn_in = 100, 
+                          num_iterations_after_burn_in = 1000)
+
+summary(bart_model_2)
+
+
+```
+
+
+
+
+```{r}
+investigate_var_importance(bart_model_2, type = "splits", 
+plot = TRUE, num_replicates_for_avg = 5, num_trees_bottleneck = 20, 
+num_var_plot = Inf, bottom_margin = 10)
+
+```
+
+
+
+
+
+
+```{r}
+x_train_df_3 <- as.data.frame(model.matrix(Survival.Indicator ~ (Apoptosis + Gender + Age.at.Diagnosis..Years. + state_1 + state_2) ,
+data = kirc))
+y_train_3 <- as.numeric(kirc$Survival.Indicator)
+y_train_3 <- factor(y_train_3, levels = c(0, 1))
+
+set.seed(123)  
+bart_model_3 <- bartMachine(x_train_df_3, y_train_3, 
+                          num_trees = 50, 
+                          num_burn_in = 100, 
+                          num_iterations_after_burn_in = 1000)
+
+summary(bart_model_3)
+
+
+```
+
+
+
+
+```{r}
+investigate_var_importance(bart_model_3, type = "splits", 
+plot = TRUE, num_replicates_for_avg = 5, num_trees_bottleneck = 20, 
+num_var_plot = Inf, bottom_margin = 10)
+
+```
+
+
+
+
+
+
+```{r}
+x_train_df_4 <- as.data.frame(model.matrix(Survival.Indicator ~ (Apoptosis + Gender + Age.at.Diagnosis..Years. + state_1 + state_2),
+data = lusc))
+y_train_4 <- as.numeric(lusc$Survival.Indicator)
+y_train_4 <- factor(y_train_4, levels = c(0, 1))
+
+set.seed(123)  
+bart_model_4 <- bartMachine(x_train_df_4, y_train_4, 
+                          num_trees = 50, 
+                          num_burn_in = 100, 
+                          num_iterations_after_burn_in = 1000)
+
+summary(bart_model_4)
+
+
+```
+
+
+
+
+```{r}
+investigate_var_importance(bart_model_4, type = "splits", 
+plot = TRUE, num_replicates_for_avg = 5, num_trees_bottleneck = 20, 
+num_var_plot = Inf, bottom_margin = 10)
+
+```
+
+
+
+
+
